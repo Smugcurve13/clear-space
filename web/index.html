@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Clear Space</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <button class="brand" id="home-button" type="button"><span class="brand-mark">✦</span> Clear Space</button>
+      <span class="privacy-note">Local scan · Nothing uploads</span>
+    </header>
+
+    <section class="screen welcome" id="welcome-screen">
+      <div class="eyebrow">SPACE, MADE CLEAR</div>
+      <h1>Make room<br>without guessing.</h1>
+      <p>Scan what your computer lets us read. We will turn it into simple groups, start with the biggest one, and let you decide what stays.</p>
+      <div class="welcome-actions">
+        <button class="button primary" id="scan-drive" type="button" disabled>Scan this Mac <span>→</span></button>
+        <button class="button quiet" id="choose-folder" type="button" disabled>Choose a folder instead</button>
+      </div>
+      <div class="steps" aria-label="How it works">
+        <span><b>01</b> Scan storage</span><span><b>02</b> Review the largest group</span><span><b>03</b> Trash only what you approve</span>
+      </div>
+    </section>
+
+    <section class="screen loading hidden" id="loading-screen" aria-live="polite">
+      <div class="scan-orbit"><i></i></div>
+      <div class="eyebrow">SCANNING STORAGE</div>
+      <h2>Finding the space you can act on.</h2>
+      <p id="loading-copy">Reading accessible storage. Protected locations are skipped.</p>
+    </section>
+
+    <section class="screen dashboard hidden" id="dashboard-screen">
+      <div class="overview-heading">
+        <div>
+          <div class="eyebrow">YOUR STORAGE</div>
+          <h2><span id="free-space">—</span> free</h2>
+          <p id="scan-root">—</p>
+        </div>
+        <button class="button quiet" id="rescan" type="button">Scan another location</button>
+      </div>
+      <article class="start-card" id="start-card"></article>
+      <div class="section-heading"><h3>Storage groups</h3><span>Start with the biggest. Paths come later.</span></div>
+      <div class="category-grid" id="category-grid"></div>
+    </section>
+
+    <section class="screen detail hidden" id="detail-screen">
+      <button class="back" id="back-to-overview" type="button">← All storage</button>
+      <div class="detail-heading">
+        <div><div class="eyebrow">REVIEWING</div><h2 id="category-name">—</h2><p id="category-total">—</p></div>
+        <span class="review-note">Every item is labeled before you act.</span>
+      </div>
+      <div class="chunk-list" id="chunk-list"></div>
+    </section>
+  </main>
+
+  <dialog id="prompt-dialog">
+    <button class="dialog-close" id="close-prompt" type="button" aria-label="Close">×</button>
+    <div class="eyebrow">ASK ANY AI</div>
+    <h2>Get a second opinion.</h2>
+    <p>This is metadata only. No file content is read or shared.</p>
+    <textarea id="ai-prompt" readonly></textarea>
+    <button class="button primary" id="copy-prompt" type="button">Copy prompt</button>
+  </dialog>
+
+  <div class="toast" id="toast" role="status"></div>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,2 @@
+pywebview[pyside6]==6.2.1; sys_platform == "linux"
+pywebview==6.2.1; sys_platform != "linux"
