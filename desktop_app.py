@@ -10,6 +10,7 @@ from space_core import StorageEntry, build_ai_prompt, format_bytes, list_directo
 
 MINIMUM_ITEM_SIZE = 100 * 1024 * 1024
 WEB_ROOT = Path(__file__).parent / "web"
+APP_ICON = WEB_ROOT / "assets" / "clear-space-icon.jpg"
 
 
 def default_scan_root() -> Path:
@@ -132,11 +133,24 @@ class DesktopApi:
             raise ValueError("That item is not part of the current view.") from error
 
 
+def set_macos_icon():
+    if sys.platform != "darwin":
+        return
+    from AppKit import NSApplication, NSImage
+
+    icon = NSImage.alloc().initWithContentsOfFile_(str(APP_ICON))
+    if icon is not None:
+        NSApplication.sharedApplication().setApplicationIconImage_(icon)
+
+
 def main():
     api = DesktopApi()
     window = webview.create_window("Clear Space", str(WEB_ROOT / "index.html"), js_api=api, width=1120, height=760, min_size=(820, 600))
     api.window = window
-    webview.start()
+    if sys.platform == "darwin":
+        webview.start(func=set_macos_icon)
+    else:
+        webview.start(func=set_macos_icon, icon=str(APP_ICON))
 
 
 if __name__ == "__main__":

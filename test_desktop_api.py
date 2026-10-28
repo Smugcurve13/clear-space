@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from desktop_app import DesktopApi, main
+from desktop_app import APP_ICON, DesktopApi, main
 
 
 class DesktopApiTests(unittest.TestCase):
@@ -54,6 +54,9 @@ class DesktopApiTests(unittest.TestCase):
 
         self.assertIsInstance(create_window.call_args.args[1], str)
         self.assertTrue(create_window.call_args.args[1].endswith("web/index.html"))
+
+    def test_provided_logo_asset_is_shipped_with_the_app(self):
+        self.assertTrue(APP_ICON.is_file())
 
 
 if __name__ == "__main__":
