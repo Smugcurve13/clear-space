@@ -32,11 +32,11 @@ class SpaceCoreTests(unittest.TestCase):
             (visible / "keep.bin").write_bytes(b"x" * 20)
             (hidden / "skip.bin").write_bytes(b"x" * 100)
 
-            with patch("space_core.is_apple_hidden", side_effect=lambda path: path == hidden):
+            with patch("space_core.is_apple_hidden", side_effect=lambda path: path == hidden.resolve()):
                 result = scan_storage(root, minimum_item_size=1, item_limit=10)
 
-            self.assertNotIn(hidden, result.directory_sizes)
-            self.assertEqual(result.directory_sizes[root], 20)
+            self.assertNotIn(hidden.resolve(), result.directory_sizes)
+            self.assertEqual(result.directory_sizes[root.resolve()], 20)
 
     def test_scan_groups_readable_storage_into_understandable_categories(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -66,7 +66,7 @@ class SpaceCoreTests(unittest.TestCase):
             self.assertTrue(updates)
             self.assertEqual(updates[-1]["files_scanned"], 1)
             self.assertEqual(updates[-1]["bytes_scanned"], 12)
-            self.assertEqual(updates[-1]["current_path"], str(root))
+            self.assertEqual(updates[-1]["current_path"], str(root.resolve()))
 
     def test_scan_builds_folder_sizes_and_lists_direct_entries(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -76,9 +76,9 @@ class SpaceCoreTests(unittest.TestCase):
             (root / "photo.jpg").write_bytes(b"x" * 20)
 
             result = scan_storage(root, minimum_item_size=1, item_limit=10)
-            folders, files = list_directory(root, result.directory_sizes)
+            folders, files = list_directory(root.resolve(), result.directory_sizes)
 
-            self.assertEqual(result.directory_sizes[root / "Projects"], 30)
+            self.assertEqual(result.directory_sizes[(root / "Projects").resolve()], 30)
             self.assertEqual(folders[0].path.name, "Projects")
             self.assertEqual(files[0].path.name, "photo.jpg")
 

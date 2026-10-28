@@ -35,7 +35,7 @@ class DesktopApiTests(unittest.TestCase):
             with patch("desktop_app.default_scan_root", return_value=root):
                 payload = api.scan()
 
-            self.assertEqual(payload["root"], str(root))
+            self.assertEqual(payload["root"], str(root.resolve()))
 
     def test_scan_returns_old_large_file_suggestions_and_categories(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -59,7 +59,7 @@ class DesktopApiTests(unittest.TestCase):
             api = DesktopApi(minimum_item_size=10)
             api.scan(str(root))
 
-            prompt = api.ai_prompt(str(target))
+            prompt = api.ai_prompt(str(target.resolve()))
 
             self.assertIn("No file contents were read", prompt)
             with self.assertRaises(ValueError):
