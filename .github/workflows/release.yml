@@ -42,6 +42,9 @@ jobs:
         run: python build_release.py
       - name: Smoke test Linux bundle
         if: runner.os == 'Linux'
+        env:
+          QT_QPA_PLATFORM: offscreen
+          QTWEBENGINE_CHROMIUM_FLAGS: --no-sandbox
         run: |
           set +e
           xvfb-run -a timeout 10 "dist/Clear Space/Clear Space"
