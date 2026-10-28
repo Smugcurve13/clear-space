@@ -6,7 +6,7 @@ from threading import Lock
 
 import webview
 
-from space_core import StorageEntry, build_ai_prompt, format_bytes, list_directory, scan_storage, trash_command
+from space_core import StorageEntry, build_ai_prompt, format_bytes, list_directory, scan_storage, suggest_large_inactive, trash_command
 
 MINIMUM_ITEM_SIZE = 100 * 1024 * 1024
 WEB_ROOT = Path(__file__).parent / "web"
@@ -24,6 +24,8 @@ class DesktopApi:
         self.window = None
         self.entries = {}
         self.directory_sizes = {self.root: 0}
+        self.category_sizes = {}
+        self.suggestions = []
         self._status_lock = Lock()
         self._scan_status = {"state": "idle", "current_path": str(self.root), "top_level": str(self.root), "files_scanned": 0, "folders_scanned": 0, "bytes_scanned": 0, "items_found": 0}
 
@@ -66,6 +68,14 @@ class DesktopApi:
             self._update_scan_status(state="failed")
             raise
         self.directory_sizes = result.directory_sizes
+        self.category_sizes = result.category_sizes
+        self.suggestions = [
+            (
+                StorageEntry(item.entry.path, item.entry.size, item.entry.kind, item.entry.category, item.entry.guidance),
+                item.days_since_access,
+            )
+            for item in suggest_large_inactive(result.chunks)
+        ]
         self._update_scan_status(state="complete", current_path=str(self.root), top_level=str(self.root), items_found=len(result.chunks))
         return self._directory_payload(self.root)
 
@@ -90,7 +100,7 @@ class DesktopApi:
 
     def _directory_payload(self, directory: Path):
         folders, files = list_directory(directory, self.directory_sizes)
-        return {
+        payload = {
             "root": str(self.root),
             "free_space": format_bytes(shutil.disk_usage(self.root).free),
             "folder": {
@@ -103,6 +113,16 @@ class DesktopApi:
             "files": [self._entry_payload(entry) for entry in files[:200]],
             "has_more_files": len(files) > 200,
         }
+        if directory == self.root:
+            payload["categories"] = [
+                {"name": name, "size": size, "display_size": format_bytes(size)}
+                for name, size in sorted(self.category_sizes.items(), key=lambda item: item[1], reverse=True)
+            ]
+            payload["suggestions"] = [
+                {**self._entry_payload(entry), "days_since_access": days}
+                for entry, days in self.suggestions
+            ]
+        return payload
 
     def ai_prompt(self, path):
         return build_ai_prompt(self._entry(path))

@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 import os
+import time
 
 
 @dataclass(frozen=True)
@@ -19,6 +20,12 @@ class StorageEntry:
     kind: str
     category: str
     guidance: str
+
+
+@dataclass(frozen=True)
+class InactiveSuggestion:
+    entry: Chunk
+    days_since_access: int
 
 
 @dataclass(frozen=True)
@@ -131,6 +138,20 @@ def scan_storage(root: Path, minimum_item_size: int, item_limit: int, on_progres
     report(root)
     chunks.sort(key=lambda chunk: chunk.size, reverse=True)
     return ScanResult(chunks[:item_limit], category_sizes, directory_sizes)
+
+
+def suggest_large_inactive(chunks: list[Chunk], now=None, limit=6) -> list[InactiveSuggestion]:
+    # ponytail: filesystem atime can be coarse; use Spotlight metadata only if this proves too weak on macOS.
+    now = time.time() if now is None else now
+    suggestions: list[InactiveSuggestion] = []
+    for chunk in chunks:
+        try:
+            days_since_access = max(0, int((now - chunk.path.stat().st_atime) // 86400))
+        except OSError:
+            continue
+        if days_since_access >= 30:
+            suggestions.append(InactiveSuggestion(chunk, days_since_access))
+    return sorted(suggestions, key=lambda item: item.entry.size * (1 + min(item.days_since_access / 365, 2)), reverse=True)[:limit]
 
 
 def list_directory(path: Path, directory_sizes: dict[Path, int]) -> tuple[list[StorageEntry], list[StorageEntry]]:

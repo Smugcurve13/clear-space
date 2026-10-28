@@ -1,8 +1,10 @@
+import os
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
-from space_core import build_ai_prompt, classify_path, list_directory, scan_storage, trash_command
+from space_core import build_ai_prompt, classify_path, list_directory, scan_storage, suggest_large_inactive, trash_command
 
 
 class SpaceCoreTests(unittest.TestCase):
@@ -55,6 +57,22 @@ class SpaceCoreTests(unittest.TestCase):
             self.assertEqual(result.directory_sizes[root / "Projects"], 30)
             self.assertEqual(folders[0].path.name, "Projects")
             self.assertEqual(files[0].path.name, "photo.jpg")
+
+    def test_suggestions_prioritise_large_files_with_old_access_signals(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            old_file = root / "old-video.mov"
+            recent_file = root / "recent-video.mov"
+            old_file.write_bytes(b"x" * 40)
+            recent_file.write_bytes(b"x" * 100)
+            now = time.time()
+            os.utime(old_file, (now - 180 * 86400, now - 180 * 86400))
+
+            chunks = scan_storage(root, minimum_item_size=1, item_limit=10).chunks
+            suggestions = suggest_large_inactive(chunks, now=now, limit=5)
+
+            self.assertEqual(suggestions[0].entry.path.name, "old-video.mov")
+            self.assertGreaterEqual(suggestions[0].days_since_access, 179)
 
     def test_ai_prompt_only_contains_metadata_and_requests_a_safe_review(self):
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -92,6 +92,25 @@ function pieceClass(folder, index) {
   return index % 3 === 0 ? 'piece-tall' : 'piece-sm';
 }
 
+function entryActions(entry) {
+  return `
+    <button class="icon-button" data-action="reveal" data-path="${escapeHtml(entry.path)}" type="button" title="Reveal in Finder" aria-label="Reveal in Finder">${icons.reveal}</button>
+    <button class="ask-button" data-action="ask" data-path="${escapeHtml(entry.path)}" type="button">${icons.sparkle}<span>Ask any AI</span></button>
+    <button class="icon-button danger" data-action="trash" data-path="${escapeHtml(entry.path)}" type="button" title="Move to Trash" aria-label="Move to Trash">${icons.trash}</button>`;
+}
+
+function renderRootInsights(data) {
+  const section = $('#review-first');
+  const suggestions = data.suggestions || [];
+  section.classList.toggle('hidden', suggestions.length === 0 && !(data.categories || []).length);
+  $('#suggestion-list').innerHTML = suggestions.map((entry) => `
+    <article class="suggestion-row">
+      <div><div class="entry-topline"><span class="entry-kind">${escapeHtml(entry.category.toUpperCase())}</span><span class="size-badge">${escapeHtml(entry.display_size)}</span></div><h3>${escapeHtml(entry.name)}</h3><p>No access signal for ${entry.days_since_access} days · ${escapeHtml(shortPath(entry.parent))}</p></div>
+      <div class="entry-actions">${entryActions(entry)}</div>
+    </article>`).join('');
+  $('#category-strip').innerHTML = (data.categories || []).map((category) => `<span class="category-chip">${escapeHtml(category.name)} <b>${escapeHtml(category.display_size)}</b></span>`).join('');
+}
+
 function renderBrowser() {
   const { folder, folders, files, free_space: freeSpace, root } = state.data;
   const isRoot = folder.path === root;
@@ -99,6 +118,7 @@ function renderBrowser() {
   $('#folder-name').textContent = isRoot ? 'Home' : folder.name;
   $('#folder-meta').textContent = `${folder.display_size} in this folder · ${freeSpace} free`;
   $('#back-button').classList.toggle('hidden', state.history.length === 0);
+  renderRootInsights(isRoot ? state.data : {});
   $('#puzzle-grid').innerHTML = folders.length ? folders.map((folderEntry, index) => `
     <button class="puzzle-piece ${pieceClass(folderEntry, index)} tone-${index % 5}" data-folder="${escapeHtml(folderEntry.path)}" type="button">
       <span class="piece-label">${escapeHtml(folderEntry.name)}</span>
@@ -112,11 +132,7 @@ function renderBrowser() {
         <h3>${escapeHtml(entry.name)}</h3>
         <p>${escapeHtml(entry.guidance)}</p>
       </div>
-      <div class="entry-actions">
-        <button class="icon-button" data-action="reveal" data-path="${escapeHtml(entry.path)}" type="button" title="Reveal in Finder" aria-label="Reveal in Finder">${icons.reveal}</button>
-        <button class="ask-button" data-action="ask" data-path="${escapeHtml(entry.path)}" type="button">${icons.sparkle}<span>Ask any AI</span></button>
-        <button class="icon-button danger" data-action="trash" data-path="${escapeHtml(entry.path)}" type="button" title="Move to Trash" aria-label="Move to Trash">${icons.trash}</button>
-      </div>
+      <div class="entry-actions">${entryActions(entry)}</div>
     </article>`).join('') : '<p class="empty">No direct files at this level.</p>';
 }
 
@@ -183,6 +199,10 @@ $('#puzzle-grid').addEventListener('click', (event) => {
   if (piece) openFolder(piece.dataset.folder);
 });
 $('#entry-list').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-action]');
+  if (button) runEntryAction(button.dataset.action, button.dataset.path);
+});
+$('#suggestion-list').addEventListener('click', (event) => {
   const button = event.target.closest('[data-action]');
   if (button) runEntryAction(button.dataset.action, button.dataset.path);
 });
