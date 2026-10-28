@@ -58,21 +58,31 @@ class SpaceCoreTests(unittest.TestCase):
             self.assertEqual(folders[0].path.name, "Projects")
             self.assertEqual(files[0].path.name, "photo.jpg")
 
-    def test_suggestions_prioritise_large_files_with_old_access_signals(self):
+    def test_suggestions_keep_media_as_files_and_group_other_items_as_inactive_folders(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
-            old_file = root / "old-video.mov"
-            recent_file = root / "recent-video.mov"
-            old_file.write_bytes(b"x" * 40)
-            recent_file.write_bytes(b"x" * 100)
+            old_video = root / "old-video.mov"
+            archive_folder = root / "Archives"
+            archive_folder.mkdir()
+            old_archive = archive_folder / "backup.zip"
+            old_video.write_bytes(b"x" * 40)
+            old_archive.write_bytes(b"x" * 50)
             now = time.time()
-            os.utime(old_file, (now - 180 * 86400, now - 180 * 86400))
+            old_time = now - 180 * 86400
+            os.utime(old_video, (old_time, old_time))
+            os.utime(old_archive, (old_time, old_time))
 
-            chunks = scan_storage(root, minimum_item_size=1, item_limit=10).chunks
-            suggestions = suggest_large_inactive(chunks, now=now, limit=5)
+            result = scan_storage(root, minimum_item_size=1, item_limit=10)
+            suggestions = suggest_large_inactive(
+                result.chunks,
+                result.directory_sizes,
+                result.directory_latest_access,
+                now=now,
+                limit=5,
+            )
 
-            self.assertEqual(suggestions[0].entry.path.name, "old-video.mov")
-            self.assertGreaterEqual(suggestions[0].days_since_access, 179)
+            self.assertTrue(any(item.entry.path.name == "old-video.mov" and item.entry.kind == "File" for item in suggestions))
+            self.assertTrue(any(item.entry.path.name == "Archives" and item.entry.kind == "Folder" for item in suggestions))
 
     def test_ai_prompt_only_contains_metadata_and_requests_a_safe_review(self):
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -105,7 +105,7 @@ function renderRootInsights(data) {
   section.classList.toggle('hidden', suggestions.length === 0 && !(data.categories || []).length);
   $('#suggestion-list').innerHTML = suggestions.map((entry) => `
     <article class="suggestion-row">
-      <div><div class="entry-topline"><span class="entry-kind">${escapeHtml(entry.category.toUpperCase())}</span><span class="size-badge">${escapeHtml(entry.display_size)}</span></div><h3>${escapeHtml(entry.name)}</h3><p>No access signal for ${entry.days_since_access} days · ${escapeHtml(shortPath(entry.parent))}</p></div>
+      <div><div class="entry-topline"><span class="entry-kind">${escapeHtml(entry.kind.toUpperCase())} · ${escapeHtml(entry.category.toUpperCase())}</span><span class="size-badge">${escapeHtml(entry.display_size)}</span></div><h3>${escapeHtml(entry.name)}</h3><p>${entry.kind === 'Folder' ? `No recent activity inside this folder for ${entry.days_since_access} days` : `No access signal for ${entry.days_since_access} days`} · ${escapeHtml(shortPath(entry.parent))}</p></div>
       <div class="entry-actions">${entryActions(entry)}</div>
     </article>`).join('');
   $('#category-strip').innerHTML = (data.categories || []).map((category) => `<span class="category-chip">${escapeHtml(category.name)} <b>${escapeHtml(category.display_size)}</b></span>`).join('');

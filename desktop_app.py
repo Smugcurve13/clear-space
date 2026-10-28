@@ -74,7 +74,7 @@ class DesktopApi:
                 StorageEntry(item.entry.path, item.entry.size, item.entry.kind, item.entry.category, item.entry.guidance),
                 item.days_since_access,
             )
-            for item in suggest_large_inactive(result.chunks)
+            for item in suggest_large_inactive(result.chunks, result.directory_sizes, result.directory_latest_access)
         ]
         self._update_scan_status(state="complete", current_path=str(self.root), top_level=str(self.root), items_found=len(result.chunks))
         return self._directory_payload(self.root)

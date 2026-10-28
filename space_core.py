@@ -33,6 +33,7 @@ class ScanResult:
     chunks: list[Chunk]
     category_sizes: dict[str, int]
     directory_sizes: dict[Path, int]
+    directory_latest_access: dict[Path, float]
 
 
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".avi", ".m4v", ".webm"}
@@ -74,6 +75,7 @@ def scan_storage(root: Path, minimum_item_size: int, item_limit: int, on_progres
     category_sizes: dict[str, int] = {}
     chunks: list[Chunk] = []
     directory_sizes: dict[Path, int] = {root: 0}
+    directory_latest_access: dict[Path, float] = {root: 0}
     files_scanned = 0
     folders_scanned = 0
     bytes_scanned = 0
@@ -102,6 +104,7 @@ def scan_storage(root: Path, minimum_item_size: int, item_limit: int, on_progres
         directory_path = Path(directory)
         folders_scanned += 1
         directory_sizes.setdefault(directory_path, 0)
+        directory_latest_access.setdefault(directory_path, 0)
         if directory_path.parent == root:
             report(directory_path)
         if directory_path == root and root == Path("/"):
@@ -112,17 +115,20 @@ def scan_storage(root: Path, minimum_item_size: int, item_limit: int, on_progres
                 subdirs.remove(dirname)
                 continue
             directory_sizes.setdefault(child, 0)
+            directory_latest_access.setdefault(child, 0)
         for filename in filenames:
             path = directory_path / filename
             try:
                 if path.is_symlink():
                     continue
-                size = path.stat().st_size
+                stat = path.stat()
+                size = stat.st_size
             except OSError:
                 continue
             files_scanned += 1
             bytes_scanned += size
             directory_sizes[directory_path] += size
+            directory_latest_access[directory_path] = max(directory_latest_access[directory_path], stat.st_atime)
             category, guidance = classify_path(path)
             category_sizes[category] = category_sizes.get(category, 0) + size
             if size >= minimum_item_size:
@@ -135,22 +141,37 @@ def scan_storage(root: Path, minimum_item_size: int, item_limit: int, on_progres
     for directory in sorted(directory_sizes, key=lambda path: len(path.parts), reverse=True):
         if directory != root and directory.parent in directory_sizes:
             directory_sizes[directory.parent] += directory_sizes[directory]
+            directory_latest_access[directory.parent] = max(directory_latest_access[directory.parent], directory_latest_access[directory])
     report(root)
     chunks.sort(key=lambda chunk: chunk.size, reverse=True)
-    return ScanResult(chunks[:item_limit], category_sizes, directory_sizes)
+    return ScanResult(chunks[:item_limit], category_sizes, directory_sizes, directory_latest_access)
 
 
-def suggest_large_inactive(chunks: list[Chunk], now=None, limit=6) -> list[InactiveSuggestion]:
+def suggest_large_inactive(chunks: list[Chunk], directory_sizes: dict[Path, int], directory_latest_access: dict[Path, float], now=None, limit=6) -> list[InactiveSuggestion]:
     # ponytail: filesystem atime can be coarse; use Spotlight metadata only if this proves too weak on macOS.
     now = time.time() if now is None else now
     suggestions: list[InactiveSuggestion] = []
+    seen_paths: set[Path] = set()
     for chunk in chunks:
+        if chunk.category != "Photos & videos":
+            continue
         try:
             days_since_access = max(0, int((now - chunk.path.stat().st_atime) // 86400))
         except OSError:
             continue
         if days_since_access >= 30:
             suggestions.append(InactiveSuggestion(chunk, days_since_access))
+            seen_paths.add(chunk.path)
+    root_depth = min(len(path.parts) for path in directory_sizes)
+    suggested_folders: set[Path] = set()
+    for directory, size in sorted(directory_sizes.items(), key=lambda item: len(item[0].parts)):
+        if len(directory.parts) == root_depth or directory in seen_paths or any(parent in suggested_folders for parent in directory.parents):
+            continue
+        category, guidance = classify_path(directory)
+        last_access = directory_latest_access.get(directory, 0)
+        if category != "Photos & videos" and last_access and now - last_access >= 30 * 86400:
+            suggestions.append(InactiveSuggestion(Chunk(directory, size, "Folder", category, guidance), int((now - last_access) // 86400)))
+            suggested_folders.add(directory)
     return sorted(suggestions, key=lambda item: item.entry.size * (1 + min(item.days_since_access / 365, 2)), reverse=True)[:limit]
 
 
