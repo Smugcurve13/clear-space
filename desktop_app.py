@@ -86,7 +86,7 @@ class DesktopApi:
 
 def main():
     api = DesktopApi()
-    window = webview.create_window("Clear Space", WEB_ROOT / "index.html", js_api=api, width=1120, height=760, min_size=(820, 600))
+    window = webview.create_window("Clear Space", str(WEB_ROOT / "index.html"), js_api=api, width=1120, height=760, min_size=(820, 600))
     api.window = window
     webview.start()
 

@@ -1,8 +1,9 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
-from desktop_app import DesktopApi
+from desktop_app import DesktopApi, main
 
 
 class DesktopApiTests(unittest.TestCase):
@@ -33,6 +34,13 @@ class DesktopApiTests(unittest.TestCase):
             self.assertIn("No file contents were read", prompt)
             with self.assertRaises(ValueError):
                 api.ai_prompt("/not-a-scanned-item")
+
+    def test_main_passes_a_string_url_to_pywebview(self):
+        with patch("desktop_app.webview.create_window") as create_window, patch("desktop_app.webview.start"):
+            main()
+
+        self.assertIsInstance(create_window.call_args.args[1], str)
+        self.assertTrue(create_window.call_args.args[1].endswith("web/index.html"))
 
 
 if __name__ == "__main__":
