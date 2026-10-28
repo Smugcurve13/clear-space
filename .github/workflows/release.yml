@@ -1,0 +1,90 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.label }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-13
+            label: macOS Intel
+          - os: macos-14
+            label: macOS Apple Silicon
+          - os: ubuntu-24.04
+            label: Linux x86_64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Linux GUI runtime
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libegl1 libgl1 libnss3 libxkbcommon-x11-0 libxcb-cursor0
+      - name: Install release dependencies
+        run: python -m pip install -r requirements.txt -r requirements-build.txt
+      - name: Test
+        run: |
+          python -m unittest -v
+          python -m py_compile desktop_app.py space_core.py space_quest.py build_release.py
+      - name: Build native bundle
+        run: python build_release.py
+      - name: Smoke test Linux bundle
+        if: runner.os == 'Linux'
+        run: |
+          set +e
+          xvfb-run -a timeout 10 "dist/Clear Space/Clear Space"
+          status=$?
+          set -e
+          test "$status" -eq 124
+      - name: Upload release asset
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os }}
+          path: release-assets/*
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          test "$TAG" = "v$(python -c 'from version import __version__; print(__version__)')"
+          python release_notes.py > RELEASE_NOTES.md
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" release-assets/* --clobber
+          else
+            args=(--title "Clear Space $TAG" --notes-file RELEASE_NOTES.md)
+            [[ "$TAG" == *-alpha.* ]] && args+=(--prerelease)
+            gh release create "$TAG" "${args[@]}" release-assets/*
+          fi
+          [[ "$TAG" != *-alpha.* ]] || test "$(gh release view "$TAG" --json isPrerelease --jq .isPrerelease)" = true
+          for asset in \
+            "Clear-Space-${TAG}-macos-arm64.zip" \
+            "Clear-Space-${TAG}-macos-x86_64.zip" \
+            "Clear-Space-${TAG}-linux-x86_64.tar.gz"; do
+            gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fx "$asset"
+          done

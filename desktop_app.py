@@ -7,9 +7,11 @@ from threading import Lock
 import webview
 
 from space_core import StorageEntry, build_ai_prompt, format_bytes, list_directory, scan_storage, suggest_large_inactive, trash_command
+from version import __version__
 
 MINIMUM_ITEM_SIZE = 100 * 1024 * 1024
-WEB_ROOT = Path(__file__).parent / "web"
+RESOURCE_ROOT = Path(getattr(sys, "_MEIPASS", Path(__file__).parent))
+WEB_ROOT = RESOURCE_ROOT / "web"
 APP_ICON = WEB_ROOT / "assets" / "clear-space-icon.jpg"
 
 
@@ -32,6 +34,9 @@ class DesktopApi:
     def get_scan_status(self):
         with self._status_lock:
             return dict(self._scan_status)
+
+    def app_version(self):
+        return __version__
 
     def _update_scan_status(self, **update):
         with self._status_lock:
@@ -165,7 +170,7 @@ def set_macos_icon():
 
 def main():
     api = DesktopApi()
-    window = webview.create_window("Clear Space", str(WEB_ROOT / "index.html"), js_api=api, width=1120, height=760, min_size=(820, 600))
+    window = webview.create_window(f"Clear Space v{__version__}", str(WEB_ROOT / "index.html"), js_api=api, width=1120, height=760, min_size=(820, 600))
     api.window = window
     if sys.platform == "darwin":
         webview.start(func=set_macos_icon)

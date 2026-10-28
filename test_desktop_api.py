@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from desktop_app import APP_ICON, DesktopApi, main
+from version import __version__
 
 
 class DesktopApiTests(unittest.TestCase):
@@ -70,6 +71,10 @@ class DesktopApiTests(unittest.TestCase):
 
         self.assertIsInstance(create_window.call_args.args[1], str)
         self.assertTrue(create_window.call_args.args[1].endswith("web/index.html"))
+        self.assertEqual(create_window.call_args.args[0], f"Clear Space v{__version__}")
+
+    def test_api_exposes_the_build_version(self):
+        self.assertEqual(DesktopApi().app_version(), __version__)
 
     def test_provided_logo_asset_is_shipped_with_the_app(self):
         self.assertTrue(APP_ICON.is_file())

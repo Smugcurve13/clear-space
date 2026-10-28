@@ -1,3 +1,7 @@
 __pycache__/
 .venv/
 .space-quest.json
+build/
+dist/
+release-assets/
+*.spec

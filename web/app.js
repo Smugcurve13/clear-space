@@ -209,6 +209,7 @@ $('#suggestion-list').addEventListener('click', (event) => {
 
 window.addEventListener('pywebviewready', () => {
   state.api = window.pywebview.api;
+  state.api.app_version().then((version) => { $('#version').textContent = `v${version}`; });
   $('#scan-drive').disabled = false;
   $('#choose-folder').disabled = false;
 });
