@@ -28,6 +28,19 @@ class SpaceCoreTests(unittest.TestCase):
             self.assertEqual(result.category_sizes["Photos & videos"], 20)
             self.assertEqual(result.category_sizes["Documents"], 5)
 
+    def test_scan_reports_the_current_folder_and_file_count(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "Library").mkdir()
+            (root / "Library" / "cache.bin").write_bytes(b"x" * 12)
+            updates = []
+
+            scan_storage(root, minimum_item_size=1, item_limit=10, on_progress=updates.append)
+
+            self.assertTrue(updates)
+            self.assertEqual(updates[-1]["files_scanned"], 1)
+            self.assertEqual(updates[-1]["current_path"], str(root))
+
     def test_ai_prompt_only_contains_metadata_and_requests_a_safe_review(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

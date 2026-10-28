@@ -25,7 +25,7 @@ python3 -m venv .venv
 .venv/bin/python space_quest.py
 ```
 
-macOS: grant Full Disk Access only if you want it to inspect protected locations. Without it, the app scans every location macOS allows and skips the rest.
+macOS: the default scan is your current user account, not the whole drive. Choose another folder only when you deliberately want to inspect it.
 
 Linux: moving to Trash uses `gio trash` when it is available. PySide6 also needs the system OpenGL/EGL runtime, for example `sudo apt install libegl1` on Ubuntu.
 

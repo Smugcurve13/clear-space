@@ -70,11 +70,27 @@ def _is_container(path: Path) -> bool:
     return path.name.lower() in CONTAINER_NAMES or path.name.lower().endswith(".app") or path.parent.name.lower() in {"common", "games"} and "steam" in str(path).lower()
 
 
-def scan_storage(root: Path, minimum_item_size: int, item_limit: int) -> ScanResult:
+def scan_storage(root: Path, minimum_item_size: int, item_limit: int, on_progress=None) -> ScanResult:
     category_sizes: dict[str, int] = {}
     chunks: list[Chunk] = []
+    files_scanned = 0
+    folders_scanned = 0
+
+    def report(current_path: Path):
+        if on_progress:
+            on_progress(
+                {
+                    "current_path": str(current_path),
+                    "files_scanned": files_scanned,
+                    "folders_scanned": folders_scanned,
+                    "items_found": len(chunks),
+                }
+            )
+
+    report(root)
     for directory, subdirs, filenames in os.walk(root, topdown=True, followlinks=False, onerror=lambda _: None):
         directory_path = Path(directory)
+        folders_scanned += 1
         if directory_path == root and root == Path("/"):
             subdirs[:] = [name for name in subdirs if name not in VIRTUAL_ROOT_NAMES]
         for dirname in list(subdirs):
@@ -82,6 +98,7 @@ def scan_storage(root: Path, minimum_item_size: int, item_limit: int) -> ScanRes
             if not _is_container(path):
                 continue
             subdirs.remove(dirname)
+            report(path)
             size = _directory_size(path)
             category, guidance = classify_path(path)
             category_sizes[category] = category_sizes.get(category, 0) + size
@@ -95,10 +112,14 @@ def scan_storage(root: Path, minimum_item_size: int, item_limit: int) -> ScanRes
                 size = path.stat().st_size
             except OSError:
                 continue
+            files_scanned += 1
             category, guidance = classify_path(path)
             category_sizes[category] = category_sizes.get(category, 0) + size
             if size >= minimum_item_size:
                 chunks.append(Chunk(path, size, "File", category, guidance))
+        if folders_scanned % 25 == 0:
+            report(directory_path)
+    report(root)
     chunks.sort(key=lambda chunk: chunk.size, reverse=True)
     return ScanResult(chunks[:item_limit], category_sizes)
 

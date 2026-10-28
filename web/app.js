@@ -1,6 +1,6 @@
 const $ = (selector) => document.querySelector(selector);
 const screens = [$('#welcome-screen'), $('#loading-screen'), $('#dashboard-screen'), $('#detail-screen')];
-const state = { api: null, data: null, category: null };
+const state = { api: null, data: null, category: null, progressTimer: null };
 
 function show(screen) {
   screens.forEach((item) => item.classList.toggle('hidden', item !== screen));
@@ -18,17 +18,40 @@ function toast(message) {
   toast.timer = window.setTimeout(() => element.classList.remove('show'), 2800);
 }
 
+function shortenPath(path) {
+  const home = /^\/Users\/[^/]+/.test(path) ? path.replace(/^\/Users\/[^/]+/, '~') : path;
+  return home.length > 74 ? `…${home.slice(-73)}` : home;
+}
+
+async function updateScanStatus() {
+  try {
+    const status = await state.api.get_scan_status();
+    $('#loading-current').textContent = `Scanning ${shortenPath(status.current_path)}`;
+    $('#loading-stats').textContent = `${status.folders_scanned.toLocaleString()} folders · ${status.files_scanned.toLocaleString()} files checked`;
+  } catch (_) {
+    // The scan remains useful even if the optional live status call is unavailable.
+  }
+}
+
 async function scan(root) {
   if (!state.api) return;
   show($('#loading-screen'));
-  $('#loading-copy').textContent = `Reading accessible storage in ${root || '/'}. Protected locations are skipped.`;
+  $('#loading-copy').textContent = root ? `Scanning ${shortenPath(root)}.` : 'Scanning your user account. System folders are not included.';
+  $('#loading-current').textContent = 'Preparing scan…';
+  $('#loading-stats').textContent = '0 folders · 0 files checked';
+  window.clearInterval(state.progressTimer);
+  state.progressTimer = window.setInterval(updateScanStatus, 300);
+  updateScanStatus();
   try {
-    state.data = await state.api.scan(root);
+    state.data = root ? await state.api.scan(root) : await state.api.scan();
     renderOverview();
     show($('#dashboard-screen'));
   } catch (error) {
     show($('#welcome-screen'));
     toast(error.message || 'Could not scan this location.');
+  } finally {
+    window.clearInterval(state.progressTimer);
+    state.progressTimer = null;
   }
 }
 
@@ -97,7 +120,7 @@ async function runChunkAction(action, path) {
   }
 }
 
-$('#scan-drive').addEventListener('click', () => scan('/'));
+$('#scan-drive').addEventListener('click', () => scan());
 $('#choose-folder').addEventListener('click', async () => {
   try {
     const folder = await state.api.choose_folder();

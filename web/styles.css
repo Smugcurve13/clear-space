@@ -31,10 +31,14 @@ h3 { margin: 0; font-size: 19px; letter-spacing: -.04em; }
 .steps b { color: #2353e7; margin-right: 7px; font-size: 10px; letter-spacing: .06em; }
 .loading { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
 .loading h2 { margin-top: 24px; }
-.loading p { max-width: 400px; color: #6d7582; line-height: 1.5; }
+.loading p { max-width: 520px; color: #6d7582; line-height: 1.5; }
+.scan-progress { width: min(420px, 80vw); height: 8px; margin: 18px 0 14px; overflow: hidden; border-radius: 999px; background: #dfe6f5; }
+.scan-progress span { display: block; width: 38%; height: 100%; border-radius: inherit; background: #2353e7; animation: scan-progress 1.25s infinite ease-in-out; }
+.scan-path { overflow-wrap: anywhere; color: #39465b !important; font-size: 13px; }
+.scan-stats { color: #8a93a2 !important; font-size: 12px; }
 .scan-orbit { display: grid; place-items: center; width: 88px; height: 88px; border: 1px solid #d9e0f1; border-radius: 50%; animation: pulse 1.8s infinite ease-in-out; }
 .scan-orbit i { width: 26px; height: 26px; border: 5px solid #2353e7; border-right-color: #d6e1ff; border-radius: 50%; animation: spin .8s infinite linear; }
-@keyframes spin { to { transform: rotate(360deg); } } @keyframes pulse { 50% { box-shadow: 0 0 0 17px #2353e70b; } }
+@keyframes spin { to { transform: rotate(360deg); } } @keyframes pulse { 50% { box-shadow: 0 0 0 17px #2353e70b; } } @keyframes scan-progress { 0% { transform: translateX(-110%); } 100% { transform: translateX(290%); } }
 .dashboard, .detail { padding: 54px 0 72px; }
 .overview-heading, .detail-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; }
 .overview-heading p, .detail-heading p { margin: 0; color: #7b8493; font-size: 13px; }

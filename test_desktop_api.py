@@ -21,6 +21,17 @@ class DesktopApiTests(unittest.TestCase):
             self.assertEqual(payload["chunks"][0]["kind"], "File")
             self.assertEqual(payload["chunks"][0]["name"], "orbit.pak")
 
+    def test_default_scan_scope_is_the_current_user_home(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "movie.mp4").write_bytes(b"x" * 30)
+            api = DesktopApi(minimum_item_size=10)
+
+            with patch("desktop_app.default_scan_root", return_value=root):
+                payload = api.scan()
+
+            self.assertEqual(payload["root"], str(root))
+
     def test_ai_prompt_is_only_available_for_a_scanned_item(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

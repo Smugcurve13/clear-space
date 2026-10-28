@@ -2,6 +2,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from threading import Lock
 
 import webview
 
@@ -11,12 +12,26 @@ MINIMUM_ITEM_SIZE = 100 * 1024 * 1024
 WEB_ROOT = Path(__file__).parent / "web"
 
 
+def default_scan_root() -> Path:
+    return Path.home()
+
+
 class DesktopApi:
     def __init__(self, minimum_item_size=MINIMUM_ITEM_SIZE):
         self.minimum_item_size = minimum_item_size
-        self.root = Path("/")
+        self.root = default_scan_root()
         self.window = None
         self.chunks = {}
+        self._status_lock = Lock()
+        self._scan_status = {"state": "idle", "current_path": str(self.root), "files_scanned": 0, "folders_scanned": 0, "items_found": 0}
+
+    def get_scan_status(self):
+        with self._status_lock:
+            return dict(self._scan_status)
+
+    def _update_scan_status(self, **update):
+        with self._status_lock:
+            self._scan_status.update(update)
 
     def choose_folder(self):
         if self.window is None:
@@ -25,12 +40,29 @@ class DesktopApi:
         return str(selected[0]) if selected else None
 
     def scan(self, root=None):
-        root_path = Path(root or self.root).expanduser()
+        root_path = Path(root).expanduser() if root else default_scan_root()
         if not root_path.is_dir():
             raise ValueError("Choose a readable folder.")
         self.root = root_path.resolve()
-        result = scan_storage(self.root, self.minimum_item_size, 100)
+        self._update_scan_status(
+            state="scanning",
+            current_path=str(self.root),
+            files_scanned=0,
+            folders_scanned=0,
+            items_found=0,
+        )
+        try:
+            result = scan_storage(
+                self.root,
+                self.minimum_item_size,
+                100,
+                on_progress=lambda update: self._update_scan_status(state="scanning", **update),
+            )
+        except Exception:
+            self._update_scan_status(state="failed")
+            raise
         self.chunks = {str(chunk.path): chunk for chunk in result.chunks}
+        self._update_scan_status(state="complete", current_path=str(self.root), items_found=len(result.chunks))
         categories = [
             {"name": name, "size": size, "display_size": format_bytes(size)}
             for name, size in sorted(result.category_sizes.items(), key=lambda item: item[1], reverse=True)

@@ -16,9 +16,9 @@
     <section class="screen welcome" id="welcome-screen">
       <div class="eyebrow">SPACE, MADE CLEAR</div>
       <h1>Make room<br>without guessing.</h1>
-      <p>Scan what your computer lets us read. We will turn it into simple groups, start with the biggest one, and let you decide what stays.</p>
+      <p>Scan your user account, including its Library folder. We will turn it into simple groups, start with the biggest one, and leave system storage alone.</p>
       <div class="welcome-actions">
-        <button class="button primary" id="scan-drive" type="button" disabled>Scan this Mac <span>→</span></button>
+        <button class="button primary" id="scan-drive" type="button" disabled>Scan my account <span>→</span></button>
         <button class="button quiet" id="choose-folder" type="button" disabled>Choose a folder instead</button>
       </div>
       <div class="steps" aria-label="How it works">
@@ -30,7 +30,10 @@
       <div class="scan-orbit"><i></i></div>
       <div class="eyebrow">SCANNING STORAGE</div>
       <h2>Finding the space you can act on.</h2>
-      <p id="loading-copy">Reading accessible storage. Protected locations are skipped.</p>
+      <div class="scan-progress" aria-label="Scan in progress"><span></span></div>
+      <p id="loading-copy">Scanning your user account. System folders are not included.</p>
+      <p class="scan-path" id="loading-current">Preparing scan…</p>
+      <p class="scan-stats" id="loading-stats">0 folders · 0 files checked</p>
     </section>
 
     <section class="screen dashboard hidden" id="dashboard-screen">
