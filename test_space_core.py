@@ -3,8 +3,9 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
-from space_core import build_ai_prompt, classify_path, list_directory, scan_storage, suggest_large_inactive, trash_command
+from space_core import build_ai_prompt, classify_path, is_apple_hidden, list_directory, scan_storage, suggest_large_inactive, trash_command
 
 
 class SpaceCoreTests(unittest.TestCase):
@@ -13,6 +14,29 @@ class SpaceCoreTests(unittest.TestCase):
 
         self.assertEqual(category, "Games")
         self.assertIn("game", guidance.lower())
+
+    def test_detects_only_macos_hidden_flag_as_apple_hidden(self):
+        class HiddenStat:
+            st_flags = 32768
+
+        self.assertTrue(is_apple_hidden(Path("/Users/me/Library/Hidden"), HiddenStat(), platform="darwin"))
+        self.assertFalse(is_apple_hidden(Path("/Users/me/.config"), HiddenStat(), platform="linux"))
+
+    def test_scan_omits_apple_hidden_folders(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            visible = root / "Visible"
+            hidden = root / "Private"
+            visible.mkdir()
+            hidden.mkdir()
+            (visible / "keep.bin").write_bytes(b"x" * 20)
+            (hidden / "skip.bin").write_bytes(b"x" * 100)
+
+            with patch("space_core.is_apple_hidden", side_effect=lambda path: path == hidden):
+                result = scan_storage(root, minimum_item_size=1, item_limit=10)
+
+            self.assertNotIn(hidden, result.directory_sizes)
+            self.assertEqual(result.directory_sizes[root], 20)
 
     def test_scan_groups_readable_storage_into_understandable_categories(self):
         with tempfile.TemporaryDirectory() as temp_dir:

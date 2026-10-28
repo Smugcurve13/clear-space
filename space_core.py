@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from pathlib import Path
 import os
+import stat
+import sys
 import time
 
 
@@ -43,6 +45,16 @@ DOCUMENT_EXTENSIONS = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx"
 ARCHIVE_EXTENSIONS = {".zip", ".rar", ".7z", ".tar", ".gz", ".dmg", ".pkg", ".iso"}
 GAME_EXTENSIONS = {".pak", ".bundle", ".obb", ".unity3d"}
 VIRTUAL_ROOT_NAMES = {"dev", "proc", "sys", "run"}
+
+
+def is_apple_hidden(path: Path, file_stat=None, platform=None) -> bool:
+    if (platform or sys.platform) != "darwin":
+        return False
+    try:
+        file_stat = file_stat or path.stat()
+    except OSError:
+        return False
+    return bool(getattr(file_stat, "st_flags", 0) & stat.UF_HIDDEN)
 
 
 def classify_path(path: Path) -> tuple[str, str]:
@@ -111,7 +123,7 @@ def scan_storage(root: Path, minimum_item_size: int, item_limit: int, on_progres
             subdirs[:] = [name for name in subdirs if name not in VIRTUAL_ROOT_NAMES]
         for dirname in list(subdirs):
             child = directory_path / dirname
-            if child.is_symlink():
+            if child.is_symlink() or is_apple_hidden(child):
                 subdirs.remove(dirname)
                 continue
             directory_sizes.setdefault(child, 0)
@@ -185,7 +197,7 @@ def list_directory(path: Path, directory_sizes: dict[Path, int]) -> tuple[list[S
     for entry in entries:
         entry_path = Path(entry.path)
         try:
-            if entry.is_symlink():
+            if entry.is_symlink() or (entry.is_dir(follow_symlinks=False) and is_apple_hidden(entry_path)):
                 continue
             if entry.is_dir(follow_symlinks=False):
                 category, guidance = classify_path(entry_path)

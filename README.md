@@ -16,6 +16,7 @@ A local-first storage cleaner for macOS and Linux. The desktop app renders your 
 - **Reveal** opens its location in Finder on macOS, or the containing folder on Linux.
 - **Move to Trash** opens a native confirmation first and uses the system Trash. It never calls `rm` or permanently deletes items.
 - **Ask any AI** generates a copyable prompt with metadata only. It does not read or upload file contents.
+- Apple-hidden folders are excluded from scan results and suggestions on macOS.
 
 ## Run
 
