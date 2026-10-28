@@ -10,53 +10,49 @@
   <main class="app-shell">
     <header class="topbar">
       <button class="brand" id="home-button" type="button"><span class="brand-mark">✦</span> Clear Space</button>
-      <span class="privacy-note">Local scan · Nothing uploads</span>
     </header>
 
     <section class="screen welcome" id="welcome-screen">
-      <div class="eyebrow">SPACE, MADE CLEAR</div>
+      <div class="eyebrow">YOUR SPACE, VISUALISED</div>
       <h1>Make room<br>without guessing.</h1>
-      <p>Scan your user account, including its Library folder. We will turn it into simple groups, start with the biggest one, and leave system storage alone.</p>
+      <p>Scan your user account, then follow its folders from the biggest pieces down to the files that matter.</p>
       <div class="welcome-actions">
         <button class="button primary" id="scan-drive" type="button" disabled>Scan my account <span>→</span></button>
         <button class="button quiet" id="choose-folder" type="button" disabled>Choose a folder instead</button>
       </div>
-      <div class="steps" aria-label="How it works">
-        <span><b>01</b> Scan storage</span><span><b>02</b> Review the largest group</span><span><b>03</b> Trash only what you approve</span>
-      </div>
     </section>
 
     <section class="screen loading hidden" id="loading-screen" aria-live="polite">
-      <div class="scan-orbit"><i></i></div>
-      <div class="eyebrow">SCANNING STORAGE</div>
-      <h2>Finding the space you can act on.</h2>
+      <div class="eyebrow">SCANNING YOUR FOLDERS</div>
+      <h2>Your space is taking shape.</h2>
       <div class="scan-progress" aria-label="Scan in progress"><span></span></div>
-      <p id="loading-copy">Scanning your user account. System folders are not included.</p>
-      <p class="scan-path" id="loading-current">Preparing scan…</p>
-      <p class="scan-stats" id="loading-stats">0 folders · 0 files checked</p>
+      <p id="loading-current">Preparing scan…</p>
+      <p class="scan-stats" id="loading-stats">0 GB scanned</p>
+      <div class="scan-pieces" id="scan-pieces" aria-label="Folders found during scan"></div>
     </section>
 
-    <section class="screen dashboard hidden" id="dashboard-screen">
-      <div class="overview-heading">
+    <section class="screen browser hidden" id="browser-screen">
+      <div class="browser-heading">
         <div>
-          <div class="eyebrow">YOUR STORAGE</div>
-          <h2><span id="free-space">—</span> free</h2>
-          <p id="scan-root">—</p>
+          <div class="eyebrow" id="folder-eyebrow">YOUR ACCOUNT</div>
+          <h2 id="folder-name">Home</h2>
+          <p id="folder-meta">—</p>
         </div>
-        <button class="button quiet" id="rescan" type="button">Scan another location</button>
+        <div class="browser-controls">
+          <button class="icon-button hidden" id="back-button" type="button" aria-label="Go back" title="Go back">←</button>
+          <button class="button quiet" id="rescan" type="button">Scan another folder</button>
+        </div>
       </div>
-      <article class="start-card" id="start-card"></article>
-      <div class="section-heading"><h3>Storage groups</h3><span>Start with the biggest. Paths come later.</span></div>
-      <div class="category-grid" id="category-grid"></div>
-    </section>
 
-    <section class="screen detail hidden" id="detail-screen">
-      <button class="back" id="back-to-overview" type="button">← All storage</button>
-      <div class="detail-heading">
-        <div><div class="eyebrow">REVIEWING</div><h2 id="category-name">—</h2><p id="category-total">—</p></div>
-        <span class="review-note">Every item is labeled before you act.</span>
-      </div>
-      <div class="chunk-list" id="chunk-list"></div>
+      <section class="puzzle-section">
+        <div class="section-heading"><h3>Folders</h3><span>Open a piece to go deeper.</span></div>
+        <div class="puzzle-grid" id="puzzle-grid"></div>
+      </section>
+
+      <section class="entry-section" id="entry-section">
+        <div class="section-heading"><h3>Files in this folder</h3><span id="file-count"></span></div>
+        <div class="entry-list" id="entry-list"></div>
+      </section>
     </section>
   </main>
 
@@ -64,7 +60,7 @@
     <button class="dialog-close" id="close-prompt" type="button" aria-label="Close">×</button>
     <div class="eyebrow">ASK ANY AI</div>
     <h2>Get a second opinion.</h2>
-    <p>This is metadata only. No file content is read or shared.</p>
+    <p>This prompt contains metadata only. No file content is read or shared.</p>
     <textarea id="ai-prompt" readonly></textarea>
     <button class="button primary" id="copy-prompt" type="button">Copy prompt</button>
   </dialog>

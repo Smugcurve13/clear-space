@@ -1,6 +1,6 @@
 # Clear Space
 
-A local-first storage cleaner for macOS and Linux. The desktop app uses a polished HTML/CSS interface inside a native PyWebView window, while Python handles local scanning and system actions.
+A local-first storage cleaner for macOS and Linux. The desktop app renders your user-account folders as a drill-down puzzle, while Python performs a one-pass local scan and native system actions.
 
 ## Stack
 

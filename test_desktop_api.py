@@ -7,7 +7,7 @@ from desktop_app import DesktopApi, main
 
 
 class DesktopApiTests(unittest.TestCase):
-    def test_scan_returns_category_cards_and_reviewable_chunks(self):
+    def test_scan_returns_root_puzzle_folders_and_browsable_file_lists(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             (root / "Steam").mkdir()
@@ -16,10 +16,12 @@ class DesktopApiTests(unittest.TestCase):
             api = DesktopApi(minimum_item_size=10)
 
             payload = api.scan(str(root))
+            detail = api.browse(str(root / "Steam"))
 
-            self.assertEqual(payload["categories"], [{"name": "Games", "size": 30, "display_size": "30 B"}])
-            self.assertEqual(payload["chunks"][0]["kind"], "File")
-            self.assertEqual(payload["chunks"][0]["name"], "orbit.pak")
+            self.assertEqual(payload["folders"][0]["name"], "Steam")
+            self.assertEqual(payload["folders"][0]["display_size"], "30 B")
+            self.assertEqual(detail["files"][0]["kind"], "File")
+            self.assertEqual(detail["files"][0]["name"], "orbit.pak")
 
     def test_default_scan_scope_is_the_current_user_home(self):
         with tempfile.TemporaryDirectory() as temp_dir:

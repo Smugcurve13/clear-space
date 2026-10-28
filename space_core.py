@@ -13,9 +13,19 @@ class Chunk:
 
 
 @dataclass(frozen=True)
+class StorageEntry:
+    path: Path
+    size: int
+    kind: str
+    category: str
+    guidance: str
+
+
+@dataclass(frozen=True)
 class ScanResult:
     chunks: list[Chunk]
     category_sizes: dict[str, int]
+    directory_sizes: dict[Path, int]
 
 
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".avi", ".m4v", ".webm"}
@@ -24,7 +34,6 @@ AUDIO_EXTENSIONS = {".mp3", ".wav", ".aiff", ".flac", ".m4a"}
 DOCUMENT_EXTENSIONS = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".pages", ".numbers", ".key", ".txt"}
 ARCHIVE_EXTENSIONS = {".zip", ".rar", ".7z", ".tar", ".gz", ".dmg", ".pkg", ".iso"}
 GAME_EXTENSIONS = {".pak", ".bundle", ".obb", ".unity3d"}
-CONTAINER_NAMES = {"node_modules", ".venv", "venv", "deriveddata", "caches", ".cache"}
 VIRTUAL_ROOT_NAMES = {"dev", "proc", "sys", "run"}
 
 
@@ -53,57 +62,49 @@ def classify_path(path: Path) -> tuple[str, str]:
     return "Other", "Unknown data. Open or reveal it before making a decision."
 
 
-def _directory_size(root: Path) -> int:
-    total = 0
-    for directory, _, filenames in os.walk(root, followlinks=False, onerror=lambda _: None):
-        for filename in filenames:
-            path = Path(directory, filename)
-            try:
-                if not path.is_symlink():
-                    total += path.stat().st_size
-            except OSError:
-                pass
-    return total
-
-
-def _is_container(path: Path) -> bool:
-    return path.name.lower() in CONTAINER_NAMES or path.name.lower().endswith(".app") or path.parent.name.lower() in {"common", "games"} and "steam" in str(path).lower()
-
-
 def scan_storage(root: Path, minimum_item_size: int, item_limit: int, on_progress=None) -> ScanResult:
+    root = root.resolve()
     category_sizes: dict[str, int] = {}
     chunks: list[Chunk] = []
+    directory_sizes: dict[Path, int] = {root: 0}
     files_scanned = 0
     folders_scanned = 0
+    bytes_scanned = 0
 
     def report(current_path: Path):
-        if on_progress:
-            on_progress(
-                {
-                    "current_path": str(current_path),
-                    "files_scanned": files_scanned,
-                    "folders_scanned": folders_scanned,
-                    "items_found": len(chunks),
-                }
-            )
+        if not on_progress:
+            return
+        try:
+            relative = current_path.relative_to(root)
+            top_level = str(root / relative.parts[0]) if relative.parts else str(root)
+        except ValueError:
+            top_level = str(root)
+        on_progress(
+            {
+                "current_path": str(current_path),
+                "top_level": top_level,
+                "files_scanned": files_scanned,
+                "folders_scanned": folders_scanned,
+                "bytes_scanned": bytes_scanned,
+                "items_found": len(chunks),
+            }
+        )
 
     report(root)
     for directory, subdirs, filenames in os.walk(root, topdown=True, followlinks=False, onerror=lambda _: None):
         directory_path = Path(directory)
         folders_scanned += 1
+        directory_sizes.setdefault(directory_path, 0)
+        if directory_path.parent == root:
+            report(directory_path)
         if directory_path == root and root == Path("/"):
             subdirs[:] = [name for name in subdirs if name not in VIRTUAL_ROOT_NAMES]
         for dirname in list(subdirs):
-            path = directory_path / dirname
-            if not _is_container(path):
+            child = directory_path / dirname
+            if child.is_symlink():
+                subdirs.remove(dirname)
                 continue
-            subdirs.remove(dirname)
-            report(path)
-            size = _directory_size(path)
-            category, guidance = classify_path(path)
-            category_sizes[category] = category_sizes.get(category, 0) + size
-            if size >= minimum_item_size:
-                chunks.append(Chunk(path, size, "Folder", category, guidance))
+            directory_sizes.setdefault(child, 0)
         for filename in filenames:
             path = directory_path / filename
             try:
@@ -113,15 +114,49 @@ def scan_storage(root: Path, minimum_item_size: int, item_limit: int, on_progres
             except OSError:
                 continue
             files_scanned += 1
+            bytes_scanned += size
+            directory_sizes[directory_path] += size
             category, guidance = classify_path(path)
             category_sizes[category] = category_sizes.get(category, 0) + size
             if size >= minimum_item_size:
                 chunks.append(Chunk(path, size, "File", category, guidance))
+            if files_scanned % 500 == 0:
+                report(directory_path)
         if folders_scanned % 25 == 0:
             report(directory_path)
+
+    for directory in sorted(directory_sizes, key=lambda path: len(path.parts), reverse=True):
+        if directory != root and directory.parent in directory_sizes:
+            directory_sizes[directory.parent] += directory_sizes[directory]
     report(root)
     chunks.sort(key=lambda chunk: chunk.size, reverse=True)
-    return ScanResult(chunks[:item_limit], category_sizes)
+    return ScanResult(chunks[:item_limit], category_sizes, directory_sizes)
+
+
+def list_directory(path: Path, directory_sizes: dict[Path, int]) -> tuple[list[StorageEntry], list[StorageEntry]]:
+    folders: list[StorageEntry] = []
+    files: list[StorageEntry] = []
+    try:
+        entries = list(os.scandir(path))
+    except OSError:
+        return folders, files
+    for entry in entries:
+        entry_path = Path(entry.path)
+        try:
+            if entry.is_symlink():
+                continue
+            if entry.is_dir(follow_symlinks=False):
+                category, guidance = classify_path(entry_path)
+                folders.append(StorageEntry(entry_path, directory_sizes.get(entry_path, 0), "Folder", category, guidance))
+            else:
+                size = entry.stat(follow_symlinks=False).st_size
+                category, guidance = classify_path(entry_path)
+                files.append(StorageEntry(entry_path, size, "File", category, guidance))
+        except OSError:
+            continue
+    folders.sort(key=lambda entry: entry.size, reverse=True)
+    files.sort(key=lambda entry: entry.size, reverse=True)
+    return folders, files
 
 
 def format_bytes(size: int) -> str:
@@ -140,16 +175,16 @@ def trash_command(platform: str, path: Path) -> list[str]:
     return ["gio", "trash", str(path)]
 
 
-def build_ai_prompt(chunk: Chunk) -> str:
+def build_ai_prompt(entry: Chunk | StorageEntry) -> str:
     return f"""I need help deciding whether a local storage item may be safe to remove.
 
 No file contents were read or shared. This is metadata only:
-- Name: {chunk.path.name}
-- Path: {chunk.path}
-- Type: {chunk.kind}
-- Size: {format_bytes(chunk.size)}
-- Category: {chunk.category}
-- Local guidance: {chunk.guidance}
+- Name: {entry.path.name}
+- Path: {entry.path}
+- Type: {entry.kind}
+- Size: {format_bytes(entry.size)}
+- Category: {entry.category}
+- Local guidance: {entry.guidance}
 
 Based only on this metadata, tell me:
 1. What it is likely to be.

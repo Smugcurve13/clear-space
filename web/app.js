@@ -1,6 +1,12 @@
 const $ = (selector) => document.querySelector(selector);
-const screens = [$('#welcome-screen'), $('#loading-screen'), $('#dashboard-screen'), $('#detail-screen')];
-const state = { api: null, data: null, category: null, progressTimer: null };
+const screens = [$('#welcome-screen'), $('#loading-screen'), $('#browser-screen')];
+const state = { api: null, data: null, history: [], progressTimer: null, scannedRoots: new Map() };
+
+const icons = {
+  reveal: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7M21 3l-9 9M19 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h6"/></svg>',
+  trash: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg>',
+  sparkle: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg>',
+};
 
 function show(screen) {
   screens.forEach((item) => item.classList.toggle('hidden', item !== screen));
@@ -8,6 +14,22 @@ function show(screen) {
 
 function escapeHtml(value) {
   return String(value).replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
+}
+
+function formatBytes(size) {
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let value = Number(size || 0);
+  let index = 0;
+  while (value >= 1024 && index < units.length - 1) {
+    value /= 1024;
+    index += 1;
+  }
+  return index ? `${value.toFixed(1)} ${units[index]}` : `${Math.floor(value)} B`;
+}
+
+function shortPath(path) {
+  const home = /^\/Users\/[^/]+/.test(path) ? path.replace(/^\/Users\/[^/]+/, '~') : path;
+  return home.length > 78 ? `…${home.slice(-77)}` : home;
 }
 
 function toast(message) {
@@ -18,34 +40,40 @@ function toast(message) {
   toast.timer = window.setTimeout(() => element.classList.remove('show'), 2800);
 }
 
-function shortenPath(path) {
-  const home = /^\/Users\/[^/]+/.test(path) ? path.replace(/^\/Users\/[^/]+/, '~') : path;
-  return home.length > 74 ? `…${home.slice(-73)}` : home;
+function renderScanningPieces() {
+  $('#scan-pieces').innerHTML = [...state.scannedRoots.values()].slice(-18).map((name, index) => `<span class="scan-piece piece-tone-${index % 5}">${escapeHtml(name)}</span>`).join('');
 }
 
 async function updateScanStatus() {
   try {
     const status = await state.api.get_scan_status();
-    $('#loading-current').textContent = `Scanning ${shortenPath(status.current_path)}`;
-    $('#loading-stats').textContent = `${status.folders_scanned.toLocaleString()} folders · ${status.files_scanned.toLocaleString()} files checked`;
+    $('#loading-current').textContent = `Scanning ${shortPath(status.current_path)}`;
+    $('#loading-stats').textContent = `${formatBytes(status.bytes_scanned)} scanned · ${Number(status.files_scanned).toLocaleString()} files checked`;
+    if (status.top_level) {
+      const name = status.top_level.split('/').filter(Boolean).pop() || 'Home';
+      state.scannedRoots.set(status.top_level, name);
+      renderScanningPieces();
+    }
   } catch (_) {
-    // The scan remains useful even if the optional live status call is unavailable.
+    // The scan can complete even if a live status update is unavailable.
   }
 }
 
 async function scan(root) {
   if (!state.api) return;
+  state.history = [];
+  state.scannedRoots = new Map();
+  renderScanningPieces();
   show($('#loading-screen'));
-  $('#loading-copy').textContent = root ? `Scanning ${shortenPath(root)}.` : 'Scanning your user account. System folders are not included.';
   $('#loading-current').textContent = 'Preparing scan…';
-  $('#loading-stats').textContent = '0 folders · 0 files checked';
+  $('#loading-stats').textContent = '0 GB scanned';
   window.clearInterval(state.progressTimer);
   state.progressTimer = window.setInterval(updateScanStatus, 300);
   updateScanStatus();
   try {
     state.data = root ? await state.api.scan(root) : await state.api.scan();
-    renderOverview();
-    show($('#dashboard-screen'));
+    renderBrowser();
+    show($('#browser-screen'));
   } catch (error) {
     show($('#welcome-screen'));
     toast(error.message || 'Could not scan this location.');
@@ -55,50 +83,55 @@ async function scan(root) {
   }
 }
 
-function renderOverview() {
-  const { categories, free_space: freeSpace, root } = state.data;
-  $('#free-space').textContent = freeSpace;
-  $('#scan-root').textContent = `Scanned ${root}`;
-  const [largest] = categories;
-  $('#start-card').innerHTML = largest ? `
-    <div class="eyebrow">START HERE</div>
-    <h3>${escapeHtml(largest.name)} is using ${escapeHtml(largest.display_size)}</h3>
-    <p>Open the biggest category first. You will see clear file or folder labels before you make a decision.</p>
-    <button class="button primary" data-category="${escapeHtml(largest.name)}" type="button">Review ${escapeHtml(largest.name)} →</button>` : `
-    <div class="eyebrow">SCAN COMPLETE</div><h3>No readable storage was found.</h3><p>Choose a different location or grant the desktop app access to more storage.</p>`;
-  $('#category-grid').innerHTML = categories.map((category) => `
-    <article class="category-card">
-      <div><h3>${escapeHtml(category.name)}</h3><p>Review the largest items first.</p><button data-category="${escapeHtml(category.name)}" type="button">Review →</button></div>
-      <div class="category-size">${escapeHtml(category.display_size)}</div>
-    </article>`).join('');
+function pieceClass(folder, index) {
+  const maximum = Math.max(...state.data.folders.map((item) => item.size), 1);
+  const ratio = folder.size / maximum;
+  if (ratio > 0.65) return 'piece-xl';
+  if (ratio > 0.28) return 'piece-lg';
+  if (ratio > 0.09) return 'piece-md';
+  return index % 3 === 0 ? 'piece-tall' : 'piece-sm';
 }
 
-function renderCategory(category) {
-  state.category = category;
-  const chunks = state.data.chunks.filter((chunk) => chunk.category === category.name);
-  $('#category-name').textContent = category.name;
-  $('#category-total').textContent = `${category.display_size} total. Largest readable chunks are first.`;
-  $('#chunk-list').innerHTML = chunks.length ? chunks.map((chunk) => `
-    <article class="chunk">
-      <div>
-        <div class="chunk-kind">${escapeHtml(chunk.kind.toUpperCase())}</div>
-        <h3>${escapeHtml(chunk.name)}</h3>
-        <p>${escapeHtml(chunk.guidance)}</p>
-        <p class="path">${escapeHtml(chunk.parent)}</p>
+function renderBrowser() {
+  const { folder, folders, files, free_space: freeSpace, root } = state.data;
+  const isRoot = folder.path === root;
+  $('#folder-eyebrow').textContent = isRoot ? 'YOUR ACCOUNT' : shortPath(folder.path);
+  $('#folder-name').textContent = isRoot ? 'Home' : folder.name;
+  $('#folder-meta').textContent = `${folder.display_size} in this folder · ${freeSpace} free`;
+  $('#back-button').classList.toggle('hidden', state.history.length === 0);
+  $('#puzzle-grid').innerHTML = folders.length ? folders.map((folderEntry, index) => `
+    <button class="puzzle-piece ${pieceClass(folderEntry, index)} tone-${index % 5}" data-folder="${escapeHtml(folderEntry.path)}" type="button">
+      <span class="piece-label">${escapeHtml(folderEntry.name)}</span>
+      <span class="size-badge">${escapeHtml(folderEntry.display_size)}</span>
+    </button>`).join('') : '<p class="empty">No folders inside this level. The files below are the endpoint.</p>';
+  $('#file-count').textContent = files.length ? `${files.length}${state.data.has_more_files ? '+' : ''} largest direct files` : '';
+  $('#entry-list').innerHTML = files.length ? files.map((entry) => `
+    <article class="entry-row">
+      <div class="entry-main">
+        <div class="entry-topline"><span class="entry-kind">${escapeHtml(entry.kind.toUpperCase())}</span><span class="size-badge">${escapeHtml(entry.display_size)}</span></div>
+        <h3>${escapeHtml(entry.name)}</h3>
+        <p>${escapeHtml(entry.guidance)}</p>
       </div>
-      <div>
-        <div class="category-size">${escapeHtml(chunk.display_size)}</div>
-        <div class="chunk-actions">
-          <button data-action="reveal" data-path="${escapeHtml(chunk.path)}" type="button">Reveal</button>
-          <button data-action="ask" data-path="${escapeHtml(chunk.path)}" type="button">Ask any AI</button>
-          <button class="danger" data-action="trash" data-path="${escapeHtml(chunk.path)}" type="button">Move to Trash</button>
-        </div>
+      <div class="entry-actions">
+        <button class="icon-button" data-action="reveal" data-path="${escapeHtml(entry.path)}" type="button" title="Reveal in Finder" aria-label="Reveal in Finder">${icons.reveal}</button>
+        <button class="ask-button" data-action="ask" data-path="${escapeHtml(entry.path)}" type="button">${icons.sparkle}<span>Ask any AI</span></button>
+        <button class="icon-button danger" data-action="trash" data-path="${escapeHtml(entry.path)}" type="button" title="Move to Trash" aria-label="Move to Trash">${icons.trash}</button>
       </div>
-    </article>`).join('') : '<p class="empty">This category is spread across smaller items. No individual file or folder exceeded 100 MB.</p>';
-  show($('#detail-screen'));
+    </article>`).join('') : '<p class="empty">No direct files at this level.</p>';
 }
 
-async function runChunkAction(action, path) {
+async function openFolder(path) {
+  try {
+    state.history.push(state.data);
+    state.data = await state.api.browse(path);
+    renderBrowser();
+  } catch (error) {
+    state.history.pop();
+    toast(error.message || 'Could not open this folder.');
+  }
+}
+
+async function runEntryAction(action, path) {
   try {
     if (action === 'reveal') {
       await state.api.reveal(path);
@@ -111,8 +144,9 @@ async function runChunkAction(action, path) {
     if (action === 'trash') {
       const moved = await state.api.move_to_trash(path);
       if (moved) {
-        toast('Moved to Trash. Refreshing storage…');
-        scan(state.data.root);
+        toast('Moved to Trash. Refreshing view…');
+        state.data = await state.api.browse(state.data.folder.path);
+        renderBrowser();
       }
     }
   } catch (error) {
@@ -129,7 +163,10 @@ $('#choose-folder').addEventListener('click', async () => {
 });
 $('#rescan').addEventListener('click', () => $('#choose-folder').click());
 $('#home-button').addEventListener('click', () => show($('#welcome-screen')));
-$('#back-to-overview').addEventListener('click', () => show($('#dashboard-screen')));
+$('#back-button').addEventListener('click', () => {
+  state.data = state.history.pop();
+  renderBrowser();
+});
 $('#close-prompt').addEventListener('click', () => $('#prompt-dialog').close());
 $('#copy-prompt').addEventListener('click', async () => {
   try {
@@ -141,17 +178,13 @@ $('#copy-prompt').addEventListener('click', async () => {
     toast('Prompt copied. No file content was included.');
   }
 });
-$('#start-card').addEventListener('click', (event) => {
-  const button = event.target.closest('[data-category]');
-  if (button) renderCategory(state.data.categories.find((category) => category.name === button.dataset.category));
+$('#puzzle-grid').addEventListener('click', (event) => {
+  const piece = event.target.closest('[data-folder]');
+  if (piece) openFolder(piece.dataset.folder);
 });
-$('#category-grid').addEventListener('click', (event) => {
-  const button = event.target.closest('[data-category]');
-  if (button) renderCategory(state.data.categories.find((category) => category.name === button.dataset.category));
-});
-$('#chunk-list').addEventListener('click', (event) => {
+$('#entry-list').addEventListener('click', (event) => {
   const button = event.target.closest('[data-action]');
-  if (button) runChunkAction(button.dataset.action, button.dataset.path);
+  if (button) runEntryAction(button.dataset.action, button.dataset.path);
 });
 
 window.addEventListener('pywebviewready', () => {
