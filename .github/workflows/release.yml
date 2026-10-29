@@ -77,6 +77,16 @@ jobs:
         run: |
           test "$TAG" = "v$(python -c 'from version import __version__; print(__version__)')"
           python release_notes.py > RELEASE_NOTES.md
+          cat >> RELEASE_NOTES.md <<EOF
+
+          ---
+
+          ## macOS
+
+          1. Download the matching Apple Silicon or Intel archive below.
+          2. Unzip and drag **Clear Space.app** into Applications.
+          3. First launch only, run \`xattr -cr "/Applications/Clear Space.app"\`, then Control-click the app and choose **Open**.
+          EOF
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" release-assets/* --clobber
           else

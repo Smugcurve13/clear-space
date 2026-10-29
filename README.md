@@ -6,7 +6,7 @@ A local-first storage cleaner for macOS and Linux. The desktop app renders your 
 
 The first alpha is `v0.0.1-alpha.1`. Download the bundle that matches your machine from the GitHub Releases page:
 
-- macOS: unzip the matching `macos-arm64` (Apple Silicon) or `macos-x86_64` (Intel) archive, then open **Clear Space.app**. It is unsigned during alpha, so macOS may require Control-click → Open on first launch.
+- macOS: unzip the matching `macos-arm64` (Apple Silicon) or `macos-x86_64` (Intel) archive, drag **Clear Space.app** into Applications, then run `xattr -cr "/Applications/Clear Space.app"` before its first Control-click → Open launch.
 - Linux x86_64: extract the `.tar.gz`, then run `./Clear\ Space/Clear\ Space`.
 
 Linux packages are built on Ubuntu and require a graphical desktop plus its normal OpenGL/EGL runtime.
