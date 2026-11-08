@@ -39,6 +39,8 @@ def build():
         "--onedir",
         "--name",
         APP_NAME,
+        "--icon",
+        str(ROOT / "web" / "assets" / "clear-space.icns"),
         "--add-data",
         f"{ROOT / 'web'}{os.pathsep}web",
         "--add-data",
