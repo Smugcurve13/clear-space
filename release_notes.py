@@ -4,7 +4,7 @@ from version import __version__
 
 
 NOTES = {
-    "0.0.1-alpha.2": {
+    "0.0.1-alpha.3": {
         "NEW": [],
         "CHANGED": ["macOS releases now preserve the app bundle's code signature when unzipped."],
         "FIXED": ["macOS application icon is included in release bundles."],
