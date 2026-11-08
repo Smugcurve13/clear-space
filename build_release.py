@@ -60,7 +60,7 @@ def build():
         raise SystemExit("Release bundle is missing THIRD_PARTY_NOTICES.md")
     archive = ASSETS / asset_name()
     if platform.system() == "Darwin":
-        shutil.make_archive(str(archive.with_suffix("")), "zip", DIST, bundle.name)
+        subprocess.run(["ditto", "-c", "-k", "--sequesterRsrc", "--keepParent", str(bundle), str(archive)], check=True)
     else:
         with tarfile.open(archive, "w:gz") as output:
             output.add(bundle, arcname=bundle.name)

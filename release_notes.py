@@ -4,13 +4,10 @@ from version import __version__
 
 
 NOTES = {
-    "0.0.1-alpha.1": {
-        "NEW": [
-            "First public alpha for local storage scans, guided folder review, and safe Move to Trash actions.",
-            "Native macOS and Linux desktop bundles.",
-        ],
-        "CHANGED": [],
-        "FIXED": [],
+    "0.0.1-alpha.2": {
+        "NEW": [],
+        "CHANGED": ["macOS releases now preserve the app bundle's code signature when unzipped."],
+        "FIXED": ["macOS application icon is included in release bundles."],
     }
 }
 
