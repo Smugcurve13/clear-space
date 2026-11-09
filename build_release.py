@@ -49,6 +49,8 @@ def build():
         f"{ROOT / 'THIRD_PARTY_NOTICES.md'}{os.pathsep}.",
         "space_quest.py",
     ]
+    if platform.system() == "Darwin":
+        command.extend(["--collect-all", "ImageCaptureCore"])
     subprocess.run(command, cwd=ROOT, check=True)
     ASSETS.mkdir()
     bundle = DIST / (f"{APP_NAME}.app" if platform.system() == "Darwin" else APP_NAME)

@@ -20,6 +20,7 @@
       <div class="welcome-actions">
         <button class="button primary" id="scan-drive" type="button" disabled>Scan my account <span>→</span></button>
         <button class="button quiet" id="choose-folder" type="button" disabled>Choose a folder instead</button>
+        <button class="button quiet" id="import-iphone" type="button" disabled>Import from iPhone</button>
       </div>
     </section>
 
@@ -59,6 +60,33 @@
       <section class="entry-section" id="entry-section">
         <div class="section-heading"><h3>Files in this folder</h3><span id="file-count"></span></div>
         <div class="entry-list" id="entry-list"></div>
+      </section>
+    </section>
+
+    <section class="screen browser hidden" id="iphone-screen">
+      <div class="browser-heading">
+        <div>
+          <div class="eyebrow">IPHONE MEDIA</div>
+          <h2 id="iphone-name">iPhone</h2>
+          <p id="iphone-meta">Connect and unlock an iPhone to review its photos and videos.</p>
+        </div>
+        <div class="browser-controls">
+          <button class="button quiet" id="iphone-refresh" type="button">Refresh iPhone</button>
+          <button class="button quiet" id="iphone-home" type="button">Home</button>
+        </div>
+      </div>
+      <section class="review-first">
+        <div class="section-heading"><div><h3>Copy to hard drive</h3><span>Choose a folder on an external disk, then copy selected originals. Nothing is deleted from the iPhone.</span></div></div>
+        <div class="iphone-controls">
+          <select id="iphone-device" aria-label="Connected iPhone"></select>
+          <button class="button quiet" id="iphone-destination" type="button">Choose hard-drive folder</button>
+          <button class="button primary" id="iphone-copy" type="button" disabled>Copy selected</button>
+        </div>
+        <p class="destination-path" id="iphone-destination-path">No destination selected.</p>
+      </section>
+      <section class="entry-section">
+        <div class="section-heading"><h3>Photos & videos</h3><span id="iphone-count"></span></div>
+        <div class="entry-list" id="iphone-list"></div>
       </section>
     </section>
   </main>

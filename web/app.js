@@ -1,6 +1,6 @@
 const $ = (selector) => document.querySelector(selector);
-const screens = [$('#welcome-screen'), $('#loading-screen'), $('#browser-screen')];
-const state = { api: null, data: null, history: [], progressTimer: null, scannedRoots: new Map() };
+const screens = [$('#welcome-screen'), $('#loading-screen'), $('#browser-screen'), $('#iphone-screen')];
+const state = { api: null, data: null, history: [], progressTimer: null, scannedRoots: new Map(), iphone: { devices: [], data: null, destination: null } };
 
 const icons = {
   reveal: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7M21 3l-9 9M19 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h6"/></svg>',
@@ -136,6 +136,53 @@ function renderBrowser() {
     </article>`).join('') : '<p class="empty">No direct files at this level.</p>';
 }
 
+function selectedIPhoneFiles() {
+  return [...document.querySelectorAll('#iphone-list input:checked')].map((input) => input.value);
+}
+
+function updateIPhoneCopyButton() {
+  const count = selectedIPhoneFiles().length;
+  $('#iphone-copy').disabled = !state.iphone.destination || count === 0;
+  $('#iphone-copy').textContent = `Copy ${count || 'selected'} to hard drive`;
+}
+
+function renderIPhoneMedia() {
+  const { device, files } = state.iphone.data;
+  $('#iphone-name').textContent = device.name;
+  $('#iphone-meta').textContent = `${files.length.toLocaleString()} photos and videos available from this iPhone.`;
+  $('#iphone-count').textContent = `${files.length.toLocaleString()} items`;
+  $('#iphone-device').innerHTML = state.iphone.devices.map((item) => `<option value="${escapeHtml(item.id)}"${item.id === device.id ? ' selected' : ''}>${escapeHtml(item.name)}</option>`).join('');
+  $('#iphone-list').innerHTML = files.length ? files.map((file) => `
+    <label class="entry-row iphone-entry">
+      <input type="checkbox" value="${escapeHtml(file.name)}" aria-label="Select ${escapeHtml(file.name)}">
+      <div class="entry-main"><div class="entry-topline"><span class="entry-kind">${escapeHtml(file.kind.toUpperCase())}</span><span class="size-badge">${formatBytes(file.size)}</span></div><h3>${escapeHtml(file.name)}</h3><p>${escapeHtml(file.created)}</p></div>
+    </label>`).join('') : '<p class="empty">No supported photos or videos were found on this iPhone.</p>';
+  $('#iphone-destination-path').textContent = state.iphone.destination ? `Copying to ${shortPath(state.iphone.destination)}` : 'No destination selected.';
+  updateIPhoneCopyButton();
+}
+
+async function loadIPhoneMedia(deviceId) {
+  state.iphone.data = await state.api.iphone_media(deviceId);
+  renderIPhoneMedia();
+}
+
+async function openIPhone() {
+  try {
+    const devices = await state.api.iphone_devices();
+    if (!devices.length) {
+      toast('Connect, unlock, and trust an iPhone, then refresh.');
+      return;
+    }
+    state.iphone.devices = devices;
+    show($('#iphone-screen'));
+    $('#iphone-name').textContent = 'Loading iPhone…';
+    await loadIPhoneMedia(devices[0].id);
+  } catch (error) {
+    show($('#welcome-screen'));
+    toast(error.message || 'Could not read iPhone media.');
+  }
+}
+
 async function openFolder(path) {
   try {
     state.history.push(state.data);
@@ -177,6 +224,30 @@ $('#choose-folder').addEventListener('click', async () => {
     if (folder) scan(folder);
   } catch (error) { toast(error.message || 'Could not open the folder picker.'); }
 });
+$('#import-iphone').addEventListener('click', openIPhone);
+$('#iphone-refresh').addEventListener('click', openIPhone);
+$('#iphone-home').addEventListener('click', () => show($('#welcome-screen')));
+$('#iphone-device').addEventListener('change', async (event) => {
+  try { await loadIPhoneMedia(event.target.value); } catch (error) { toast(error.message || 'Could not read iPhone media.'); }
+});
+$('#iphone-destination').addEventListener('click', async () => {
+  try {
+    const folder = await state.api.choose_folder();
+    if (folder) {
+      state.iphone.destination = folder;
+      renderIPhoneMedia();
+    }
+  } catch (error) { toast(error.message || 'Could not choose a destination.'); }
+});
+$('#iphone-list').addEventListener('change', updateIPhoneCopyButton);
+$('#iphone-copy').addEventListener('click', async () => {
+  try {
+    const result = await state.api.copy_iphone_media(state.iphone.data.device.id, selectedIPhoneFiles(), state.iphone.destination);
+    toast(`Copied ${result.count} item${result.count === 1 ? '' : 's'} to ${shortPath(result.destination)}.`);
+    document.querySelectorAll('#iphone-list input:checked').forEach((input) => { input.checked = false; });
+    updateIPhoneCopyButton();
+  } catch (error) { toast(error.message || 'Could not copy iPhone media.'); }
+});
 $('#rescan').addEventListener('click', () => $('#choose-folder').click());
 $('#home-button').addEventListener('click', () => show($('#welcome-screen')));
 $('#back-button').addEventListener('click', () => {
@@ -212,4 +283,5 @@ window.addEventListener('pywebviewready', () => {
   state.api.app_version().then((version) => { $('#version').textContent = `v${version}`; });
   $('#scan-drive').disabled = false;
   $('#choose-folder').disabled = false;
+  $('#import-iphone').disabled = false;
 });

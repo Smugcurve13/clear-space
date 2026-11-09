@@ -1,2 +1,3 @@
 pywebview[pyside6]==6.2.1; sys_platform == "linux"
 pywebview==6.2.1; sys_platform != "linux"
+pyobjc-framework-ImageCaptureCore==12.2.2; sys_platform == "darwin"

@@ -7,6 +7,7 @@ from threading import Lock
 import webview
 
 from space_core import StorageEntry, build_ai_prompt, format_bytes, list_directory, scan_storage, suggest_large_inactive, trash_command
+from iphone_media import IPhoneMedia
 from version import __version__
 
 MINIMUM_ITEM_SIZE = 100 * 1024 * 1024
@@ -28,6 +29,7 @@ class DesktopApi:
         self.directory_sizes = {self.root: 0}
         self.category_sizes = {}
         self.suggestions = []
+        self.iphone = IPhoneMedia() if sys.platform == "darwin" else None
         self._status_lock = Lock()
         self._scan_status = {"state": "idle", "current_path": str(self.root), "top_level": str(self.root), "files_scanned": 0, "folders_scanned": 0, "bytes_scanned": 0, "items_found": 0}
 
@@ -47,6 +49,21 @@ class DesktopApi:
             return None
         selected = self.window.create_file_dialog(webview.FileDialog.FOLDER, directory=str(self.root))
         return str(selected[0]) if selected else None
+
+    def iphone_devices(self):
+        if self.iphone is None:
+            raise RuntimeError("iPhone import is available only in the macOS app.")
+        return self.iphone.devices()
+
+    def iphone_media(self, device_id):
+        if self.iphone is None:
+            raise RuntimeError("iPhone import is available only in the macOS app.")
+        return self.iphone.media(device_id)
+
+    def copy_iphone_media(self, device_id, filenames, destination):
+        if self.iphone is None:
+            raise RuntimeError("iPhone import is available only in the macOS app.")
+        return self.iphone.copy(device_id, filenames, destination)
 
     def scan(self, root=None):
         root_path = Path(root).expanduser() if root else default_scan_root()
